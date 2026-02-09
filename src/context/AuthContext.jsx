@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
                 try {
                     const res = await authService.getMe();
                     setUser(res.data);
+
                 } catch (err) {
                     localStorage.removeItem('token');
                 }
@@ -27,6 +28,7 @@ export const AuthProvider = ({ children }) => {
         const res = await authService.login(email, password);
         localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
+        localStorage.setItem('userRole', res.data.user.role);
         return res.data;
     };
 

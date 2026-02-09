@@ -1,19 +1,20 @@
 // components/ImageUploader.jsx - Updated version with mode prop
 import React, { useState } from 'react';
 import { Upload, Button, message, Image, Space } from 'antd';
-import { UploadOutlined, DeleteOutlined, PictureOutlined } from '@ant-design/icons';
+import { UploadOutlined, DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons';
 import { uploadService } from '../services/api';
 
-const ImageUploader = ({ 
-    value, 
-    onChange, 
+const ImageUploader = ({
+    value,
+    onChange,
     mode = 'single', // 'single' or 'multiple'
     maxFiles = 10,
-    ...props 
+    ...props
 }) => {
     const [loading, setLoading] = useState(false);
     const [fileList, setFileList] = useState([]);
 
+    // Single upload handler logic remains similar but simplified
     const handleSingleUpload = async ({ file, onSuccess, onError }) => {
         setLoading(true);
         try {
@@ -31,32 +32,43 @@ const ImageUploader = ({
         }
     };
 
-    const handleMultipleUpload = async ({ file, onSuccess, onError, fileList: newFileList }) => {
-        setLoading(true);
+    // Multiple upload: Upload per file, onSuccess updates file status
+    const handleMultipleUpload = async ({ file, onSuccess, onError }) => {
+        // Note: we don't set loading global here heavily as purely controlled by fileList
         try {
-            // Upload multiple files
-            const filesToUpload = newFileList.map(f => f.originFileObj).filter(f => f);
-            const response = await uploadService.upload(filesToUpload, true);
-            
+            const response = await uploadService.upload(file, false); // Upload as single file
             onSuccess(response.data, file);
-            
-            // Get the uploaded URLs
-            const uploadedUrls = response.data.data.map(file => file.fullUrl || file.url);
-            
-            // Combine existing values with new ones
-            const existingValues = Array.isArray(value) ? value : [];
-            const newValue = [...existingValues, ...uploadedUrls];
-            
-            if (onChange) {
-                onChange(newValue);
-            }
-            
-            message.success(`${uploadedUrls.length} file(s) uploaded successfully`);
+            message.success('Uploaded ' + file.name);
         } catch (error) {
             onError(error);
-            message.error('Upload failed: ' + error.message);
-        } finally {
-            setLoading(false);
+            message.error(`Failed to upload ${file.name}: ${error.message}`);
+        }
+    };
+
+    const handleUploadChange = ({ fileList: newFileList }) => {
+        setFileList(newFileList);
+
+        // Check for done files and move them to value
+        const doneFiles = newFileList.filter(file => file.status === 'done');
+        if (doneFiles.length > 0) {
+            const newUrls = doneFiles.map(file => {
+                // Handle response structure. customRequest passes response.data to onSuccess
+                const resp = file.response;
+                return resp?.data?.fullUrl || resp?.data?.url;
+            }).filter(url => url);
+
+            if (newUrls.length > 0) {
+                const existingValues = Array.isArray(value) ? value : [];
+                const newValue = [...existingValues, ...newUrls];
+
+                if (onChange) {
+                    onChange(newValue);
+                }
+
+                // Clear done files from list so they aren't re-added
+                // We keep error/uploading files
+                setFileList(current => current.filter(f => f.status !== 'done'));
+            }
         }
     };
 
@@ -86,21 +98,21 @@ const ImageUploader = ({
                 return false;
             }
         }
-        
+
         // Check file type
         const isImage = file.type.startsWith('image/');
         if (!isImage) {
             message.error('You can only upload image files!');
             return false;
         }
-        
+
         // Check file size (5MB)
         const isLt5M = file.size / 1024 / 1024 < 5;
         if (!isLt5M) {
             message.error('Image must be smaller than 5MB!');
             return false;
         }
-        
+
         return true;
     };
 
@@ -114,17 +126,20 @@ const ImageUploader = ({
                     accept="image/*"
                     beforeUpload={beforeUpload}
                     fileList={fileList}
-                    onChange={({ fileList }) => setFileList(fileList)}
+                    onChange={handleUploadChange}
                     {...props}
                 >
-                    <Button icon={<UploadOutlined />} loading={loading}>
-                        Upload Images
-                    </Button>
-                    <div className="mt-2 text-xs text-gray-500">
-                        Upload up to {maxFiles} images
-                    </div>
+                    {fileList.length >= maxFiles ? null : (
+                        <div className="flex flex-col items-center justify-center h-full">
+                            <PlusOutlined />
+                            <div className="mt-2">Upload</div>
+                        </div>
+                    )}
                 </Upload>
-                
+                <div className="text-xs text-gray-500">
+                    Upload up to {maxFiles} images
+                </div>
+
                 {Array.isArray(value) && value.length > 0 && (
                     <div className="border rounded-lg p-4">
                         <div className="flex items-center justify-between mb-4">
@@ -135,7 +150,7 @@ const ImageUploader = ({
                                 )}
                             </span>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {value.map((url, index) => (
                                 <div key={index} className="relative group border rounded-lg overflow-hidden">
@@ -184,7 +199,7 @@ const ImageUploader = ({
                     Upload Image
                 </Button>
             </Upload>
-            
+
             {value && (
                 <div className="mt-4 border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">

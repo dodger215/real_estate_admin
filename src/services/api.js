@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.REACT_APP_API_URL;
+const API_URL = "http://localhost:5000/api";
 
 
 const api = axios.create({
@@ -46,7 +46,7 @@ export const uploadService = {
     upload: (files, multiple = false) => {
         const formData = new FormData();
         formData.append('multiple', multiple);
-        
+
         if (multiple) {
             files.forEach(file => {
                 formData.append('files', file);
@@ -54,27 +54,41 @@ export const uploadService = {
         } else {
             formData.append('file', files);
         }
-        
+
         return api.post('/upload/upload', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
         });
     },
-    
+
     deleteFile: (filename) => api.delete(`/upload/delete/${filename}`),
-    
+
     listFiles: () => api.get('/upload/list'),
-    
+
     getFileInfo: (filename) => api.get(`/upload/info/${filename}`)
 };
 
+// Recycle Bin
+export const recycleBinService = {
+    // Properties
+    getDeletedProperties: () => api.get('/editor/properties/deleted'),
+    restoreProperty: (id) => api.post(`/editor/properties/${id}/restore`),
+    permanentDeleteProperty: (id) => api.delete(`/editor/properties/${id}/permanent`),
+
+    // Agents
+    getDeletedAgents: () => api.get('/editor/agents/deleted'),
+    restoreAgent: (id) => api.post(`/editor/agents/${id}/restore`),
+    permanentDeleteAgent: (id) => api.delete(`/editor/agents/${id}/permanent`),
+};
+
+// ... existing exports
 export const editorService = {
     // Properties
     getProperties: () => api.get('/editor/properties'),
     getProperty: (id) => api.get(`/editor/properties/${id}`),
     createProperty: (data) => api.post('/editor/properties', data),
-    updateProperty: (id, data) => api.patch(`/editor/editor/properties/${id}`, data),
+    updateProperty: (id, data) => api.patch(`/editor/properties/${id}`, data),
     deleteProperty: (id) => api.delete(`/editor/properties/${id}`),
 
     // Blogs
@@ -101,6 +115,26 @@ export const editorService = {
     createProject: (data) => api.post('/editor/projects', data),
     updateProject: (id, data) => api.patch(`/editor/projects/${id}`, data),
     deleteProject: (id) => api.delete(`/editor/projects/${id}`),
+};
+
+// Templates
+export const templateService = {
+    getTemplates: () => api.get('/templates'),
+    getTemplate: (id) => api.get(`/templates/${id}`),
+    createTemplate: (data) => api.post('/templates', data),
+    updateTemplate: (id, data) => api.patch(`/templates/${id}`, data),
+    deleteTemplate: (id) => api.delete(`/templates/${id}`),
+    sendToLead: (data) => api.post('/templates/send', data),
+    getSubmissions: () => api.get('/templates/submissions/all'),
+    reviewSubmission: (id, data) => api.patch(`/templates/submissions/${id}`, data),
+};
+
+// Public
+export const publicService = {
+    getSubmission: (id) => api.get(`/public/submission/${id}`),
+    requestOtp: (data) => api.post('/public/otp/request', data),
+    verifyOtp: (data) => api.post('/public/otp/verify', data),
+    submitForm: (data) => api.post('/public/submit', data),
 };
 
 export default api;

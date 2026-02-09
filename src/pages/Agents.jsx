@@ -1,515 +1,266 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Input, Button, Card, message, Tabs, Switch, Space } from 'antd';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { contentService } from '../services/api';
-import ImageUploader from '../components/ImageUploader'; // Import the ImageUploader
+import { Form, Input, Button, Card, message, Space, Table, Modal, Tag } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { editorService } from '../services/api';
+import ImageUploader from '../components/ImageUploader';
 
-const PageContent = () => {
-    const [form] = Form.useForm();
-    const [loading, setLoading] = useState(true);
+const Agents = () => {
+    const [agents, setAgents] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [agentModalVisible, setAgentModalVisible] = useState(false);
+    const [editingAgent, setEditingAgent] = useState(null);
+    const [agentForm] = Form.useForm();
 
-    useEffect(() => {
-        const fetchContent = async () => {
-            try {
-                const res = await contentService.getContent();
-                form.setFieldsValue(res.data);
-            } catch (err) {
-                message.error('Failed to fetch content');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchContent();
-    }, [form]);
-
-    const onFinish = async (values) => {
+    const fetchAgents = async () => {
+        setLoading(true);
         try {
-            await contentService.updateContent(values);
-            message.success('Content updated successfully');
+            const res = await editorService.getAgents();
+            setAgents(res.data);
         } catch (err) {
-            message.error('Failed to update content');
+            message.error('Failed to fetch agents');
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const items = [
+    useEffect(() => {
+        fetchAgents();
+    }, []);
+
+    useEffect(() => {
+        if (agentModalVisible) {
+            if (editingAgent) {
+                agentForm.setFieldsValue(editingAgent);
+            } else {
+                agentForm.resetFields();
+            }
+        }
+    }, [agentModalVisible, editingAgent, agentForm]);
+
+    const handleAgentSave = async (values) => {
+        try {
+            if (editingAgent) {
+                await editorService.updateAgent(editingAgent._id, values);
+                message.success('Agent updated');
+            } else {
+                await editorService.createAgent(values);
+                message.success('Agent created');
+            }
+            setAgentModalVisible(false);
+            fetchAgents();
+        } catch (err) {
+            message.error('Failed to save agent');
+        }
+    };
+
+    const handleAgentDelete = async (id) => {
+        try {
+            await editorService.deleteAgent(id);
+            message.success('Agent deleted');
+            fetchAgents();
+        } catch (err) {
+            message.error('Failed to delete agent');
+        }
+    };
+
+    const [viewMode, setViewMode] = useState(window.innerWidth < 768 ? 'card' : 'table');
+
+    const agentColumns = [
+        { title: 'Name', dataIndex: 'name', key: 'name', className: 'font-bold' },
+        { title: 'Role', dataIndex: 'role', key: 'role', render: (role) => <Tag className="rounded-lg border-none px-3 font-bold uppercase text-[10px]">{role}</Tag> },
         {
-            key: 'hero',
-            label: 'Hero Section',
-            children: (
-                <>
-                    <Form.Item name={['hero', 'headline']} label="Headline">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['hero', 'subheadline']} label="Subheadline">
-                        <Input.TextArea />
-                    </Form.Item>
-                    <Form.Item name={['hero', 'backgroundImage']} label="Background Image">
-                        <ImageUploader mode="single" />
-                    </Form.Item>
-                    <Form.Item name={['hero', 'ctaText']} label="CTA Button Text">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['hero', 'ctaAction']} label="CTA Action">
-                        <Input placeholder="form / phone / whatsapp" />
-                    </Form.Item>
-                    <Space>
-                        <Form.Item name={['hero', 'showBadge']} label="Show Badge" valuePropName="checked">
-                            <Switch />
-                        </Form.Item>
-                        <Form.Item name={['hero', 'badgeText']} label="Badge Text">
-                            <Input placeholder="New Listing" />
-                        </Form.Item>
-                    </Space>
-                </>
-            ),
+            title: 'Photo',
+            dataIndex: 'photo',
+            key: 'photo',
+            render: (photo) => photo ? <img src={photo} alt="agent" className="w-10 h-10 rounded-xl object-cover" /> : <div className="w-10 h-10 rounded-xl bg-gray-100" />
         },
         {
-            key: 'about',
-            label: 'About Page',
-            children: (
-                <>
-                    <Form.Item name={['about', 'title']} label="Page Title">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['about', 'image']} label="Featured Image">
-                        <ImageUploader mode="single" />
-                    </Form.Item>
-                    <Form.Item name={['about', 'mission']} label="Mission Statement">
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
-                    <Form.Item name={['about', 'vision']} label="Vision Statement">
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
-                    <Form.Item name={['about', 'content']} label="Main Content">
-                        <Input.TextArea rows={6} />
-                    </Form.Item>
-                </>
-            ),
+            title: 'Contact', key: 'contact', render: (_, record) => (
+                <div className="flex flex-col">
+                    <span className="text-sm font-medium">{record.email}</span>
+                    <span className="text-xs text-gray-400">{record.phone}</span>
+                </div>
+            )
         },
         {
-            key: 'contactPage',
-            label: 'Contact Page',
-            children: (
-                <>
-                    <Form.Item name={['contactPage', 'title']} label="Page Title">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['contactPage', 'description']} label="Description">
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
-                    <Form.Item name={['contactPage', 'officeLocation']} label="Office Address">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['contactPage', 'mapEmbed']} label="Google Maps Embed URL">
-                        <Input />
-                    </Form.Item>
-                </>
-            ),
-        },
-        {
-            key: 'trustSignals',
-            label: 'Trust Signals',
-            children: (
-                <>
-                    <Form.Item name={['trustSignals', 'yearsExperience']} label="Years of Experience">
-                        <Input placeholder="e.g., 15+" />
-                    </Form.Item>
-                    <Form.Item name={['trustSignals', 'homesSold']} label="Homes Sold">
-                        <Input placeholder="e.g., 500+" />
-                    </Form.Item>
-                    <Form.List name={['trustSignals', 'badges']}>
-                        {(fields, { add, remove }) => (
-                            <>
-                                {fields.map(({ key, name, ...restField }) => (
-                                    <div key={key} className="p-4 border rounded-xl mb-4 bg-gray-50">
-                                        <Form.Item 
-                                            {...restField} 
-                                            name={[name]} 
-                                            label={`Badge ₵‎{name + 1}`}
-                                        >
-                                            <Input placeholder="e.g., Top Rated Agent, Certified Luxury Specialist" />
-                                        </Form.Item>
-                                        <Button type="link" danger onClick={() => remove(name)}>
-                                            Remove Badge
-                                        </Button>
-                                    </div>
-                                ))}
-                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                    Add Badge
-                                </Button>
-                            </>
-                        )}
-                    </Form.List>
-                </>
-            ),
-        },
-        {
-            key: 'property',
-            label: 'Featured Property',
-            children: (
-                <>
-                    <Form.Item name={['property', 'title']} label="Property Title">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['property', 'description']} label="Description">
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
-                    <Form.Item name={['property', 'image']} label="Property Image">
-                        <ImageUploader mode="single" />
-                    </Form.Item>
-                    <Space direction="vertical" className="w-full">
-                        <Form.Item name={['property', 'type']} label="Type">
-                            <Input placeholder="e.g., Apartment, Villa" />
-                        </Form.Item>
-                        <Form.Item name={['property', 'location']} label="Location">
-                            <Input placeholder="e.g., Downtown, Beverly Hills" />
-                        </Form.Item>
-                        <Form.Item name={['property', 'size']} label="Size">
-                            <Input placeholder="e.g., 120 sqm" />
-                        </Form.Item>
-                        <Form.Item name={['property', 'price']} label="Price">
-                            <Input placeholder="e.g., From ₵‎250,000" />
-                        </Form.Item>
-                    </Space>
-                </>
-            ),
-        },
-        {
-            key: 'features',
-            label: 'Features & Amenities',
-            children: (
-                <Form.List name="features">
-                    {(fields, { add, remove }) => (
-                        <>
-                            {fields.map(({ key, name, ...restField }) => (
-                                <div key={key} className="p-4 border rounded-xl mb-4 bg-gray-50">
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'name']} 
-                                        label="Feature Name"
-                                        rules={[{ required: true }]}
-                                    >
-                                        <Input placeholder="e.g., Swimming Pool, Gym, Security" />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'icon']} 
-                                        label="Icon Name"
-                                    >
-                                        <Input placeholder="e.g., pool, gym, security (optional)" />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'enabled']} 
-                                        label="Enabled"
-                                        valuePropName="checked"
-                                        initialValue={true}
-                                    >
-                                        <Switch />
-                                    </Form.Item>
-                                    <Button type="link" danger onClick={() => remove(name)}>
-                                        Remove Feature
-                                    </Button>
-                                </div>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                Add Feature
-                            </Button>
-                        </>
-                    )}
-                </Form.List>
-            ),
-        },
-        {
-            key: 'location',
-            label: 'Location',
-            children: (
-                <>
-                    <Form.Item name={['location', 'address']} label="Address">
-                        <Input />
-                    </Form.Item>
-                    <Form.Item name={['location', 'mapEmbed']} label="Google Maps Embed URL">
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
-                    <Form.Item name={['location', 'neighborhoodDescription']} label="Neighborhood Description">
-                        <Input.TextArea rows={4} />
-                    </Form.Item>
-                    <Form.List name={['location', 'landmarks']}>
-                        {(fields, { add, remove }) => (
-                            <>
-                                {fields.map(({ key, name, ...restField }) => (
-                                    <div key={key} className="p-4 border rounded-xl mb-4 bg-gray-50">
-                                        <Space direction="vertical" className="w-full">
-                                            <Form.Item 
-                                                {...restField} 
-                                                name={[name, 'name']} 
-                                                label="Landmark Name"
-                                                rules={[{ required: true }]}
-                                            >
-                                                <Input placeholder="e.g., Shopping Mall, School, Hospital" />
-                                            </Form.Item>
-                                            <Form.Item 
-                                                {...restField} 
-                                                name={[name, 'distance']} 
-                                                label="Distance"
-                                            >
-                                                <Input placeholder="e.g., 5 min walk, 2 km drive" />
-                                            </Form.Item>
-                                        </Space>
-                                        <Button type="link" danger onClick={() => remove(name)}>
-                                            Remove Landmark
-                                        </Button>
-                                    </div>
-                                ))}
-                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                    Add Landmark
-                                </Button>
-                            </>
-                        )}
-                    </Form.List>
-                </>
-            ),
-        },
-        {
-            key: 'testimonials',
-            label: 'Testimonials',
-            children: (
-                <Form.List name="testimonials">
-                    {(fields, { add, remove }) => (
-                        <>
-                            {fields.map(({ key, name, ...restField }) => (
-                                <div key={key} className="p-4 border rounded-xl mb-4 bg-gray-50">
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'name']} 
-                                        label="Name" 
-                                        rules={[{ required: true }]}
-                                    >
-                                        <Input />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'role']} 
-                                        label="Role"
-                                    >
-                                        <Input placeholder="e.g., CEO, Home Owner, Investor" />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'content']} 
-                                        label="Content"
-                                    >
-                                        <Input.TextArea rows={3} placeholder="What they said about your service..." />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'avatar']} 
-                                        label="Avatar"
-                                    >
-                                        <ImageUploader mode="single" />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'rating']} 
-                                        label="Rating"
-                                    >
-                                        <Input type="number" min={1} max={5} placeholder="1-5" />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'enabled']} 
-                                        label="Enabled"
-                                        valuePropName="checked"
-                                        initialValue={true}
-                                    >
-                                        <Switch />
-                                    </Form.Item>
-                                    <Button type="link" danger onClick={() => remove(name)}>
-                                        Remove Testimonial
-                                    </Button>
-                                </div>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                Add Testimonial
-                            </Button>
-                        </>
-                    )}
-                </Form.List>
-            ),
-        },
-        {
-            key: 'faq',
-            label: 'FAQ',
-            children: (
-                <Form.List name="faq">
-                    {(fields, { add, remove }) => (
-                        <>
-                            {fields.map(({ key, name, ...restField }) => (
-                                <div key={key} className="p-4 border rounded-xl mb-4 bg-gray-50">
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'question']} 
-                                        label="Question" 
-                                        rules={[{ required: true }]}
-                                    >
-                                        <Input />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'answer']} 
-                                        label="Answer" 
-                                        rules={[{ required: true }]}
-                                    >
-                                        <Input.TextArea rows={3} />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'enabled']} 
-                                        label="Enabled"
-                                        valuePropName="checked"
-                                        initialValue={true}
-                                    >
-                                        <Switch />
-                                    </Form.Item>
-                                    <Button type="link" danger onClick={() => remove(name)}>
-                                        Remove FAQ
-                                    </Button>
-                                </div>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                Add FAQ
-                            </Button>
-                        </>
-                    )}
-                </Form.List>
-            ),
-        },
-        {
-            key: 'footer',
-            label: 'Footer',
-            children: (
-                <>
-                    <Form.Item name={['footer', 'text']} label="Footer Text">
-                        <Input.TextArea rows={3} placeholder="Luxury living redefined. Find your dream home with us." />
-                    </Form.Item>
-                    <Form.Item name={['footer', 'copyright']} label="Copyright Text">
-                        <Input placeholder={`© ₵{new Date().getFullYear()} Your Company. All rights reserved.`} />
-                    </Form.Item>
-                    <Form.List name={['footer', 'legalLinks']}>
-                        {(fields, { add, remove }) => (
-                            <>
-                                <div className="mb-4">
-                                    {fields.map(({ key, name, ...restField }) => (
-                                        <div key={key} className="p-4 border rounded-xl mb-2 bg-gray-50">
-                                            <Space direction="vertical" className="w-full">
-                                                <Form.Item 
-                                                    {...restField} 
-                                                    name={[name, 'label']} 
-                                                    label="Link Label"
-                                                    rules={[{ required: true }]}
-                                                >
-                                                    <Input placeholder="e.g., Privacy Policy, Terms of Service" />
-                                                </Form.Item>
-                                                <Form.Item 
-                                                    {...restField} 
-                                                    name={[name, 'url']} 
-                                                    label="Link URL"
-                                                    rules={[{ required: true }]}
-                                                >
-                                                    <Input placeholder="e.g., /privacy, /terms" />
-                                                </Form.Item>
-                                            </Space>
-                                            <Button type="link" danger onClick={() => remove(name)}>
-                                                Remove Link
-                                            </Button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                    Add Legal Link
-                                </Button>
-                            </>
-                        )}
-                    </Form.List>
-                </>
-            ),
-        },
-        {
-            key: 'media',
-            label: 'Media Gallery',
-            children: (
-                <>
-                    <Form.Item name={['media', 'enabled']} label="Enable Media Gallery" valuePropName="checked" initialValue={true}>
-                        <Switch />
-                    </Form.Item>
-                    <Form.Item name={['media', 'gallery']} label="Gallery Images">
-                        <ImageUploader mode="multiple" maxFiles={20} />
-                    </Form.Item>
-                    <Form.Item name={['media', 'floorPlans']} label="Floor Plans">
-                        <ImageUploader mode="multiple" maxFiles={10} />
-                    </Form.Item>
-                    <Form.Item name={['media', 'videoTour']} label="Video Tour URL">
-                        <Input placeholder="YouTube or Vimeo embed URL" />
-                    </Form.Item>
-                </>
-            ),
-        },
-        {
-            key: 'paymentPlans',
-            label: 'Payment Plans',
-            children: (
-                <Form.List name="paymentPlans">
-                    {(fields, { add, remove }) => (
-                        <>
-                            {fields.map(({ key, name, ...restField }) => (
-                                <div key={key} className="p-4 border rounded-xl mb-4 bg-gray-50">
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'title']} 
-                                        label="Plan Title"
-                                        rules={[{ required: true }]}
-                                    >
-                                        <Input placeholder="e.g., 20% Down Payment, Flexible Installments" />
-                                    </Form.Item>
-                                    <Form.Item 
-                                        {...restField} 
-                                        name={[name, 'description']} 
-                                        label="Description"
-                                    >
-                                        <Input.TextArea rows={2} placeholder="Describe the payment terms..." />
-                                    </Form.Item>
-                                    <Button type="link" danger onClick={() => remove(name)}>
-                                        Remove Payment Plan
-                                    </Button>
-                                </div>
-                            ))}
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                                Add Payment Plan
-                            </Button>
-                        </>
-                    )}
-                </Form.List>
-            ),
-        },
+            title: 'Action',
+            key: 'action',
+            width: 120,
+            render: (_, record) => (
+                <Space size="middle">
+                    <Button
+                        type="text"
+                        icon={<EditOutlined className="text-primary" />}
+                        onClick={() => {
+                            setEditingAgent(record);
+                            setAgentModalVisible(true);
+                        }}
+                        className="hover:bg-primary/10 rounded-lg h-10 w-10 flex items-center justify-center transition-colors"
+                    />
+                    <Button
+                        type="text"
+                        icon={<DeleteOutlined className="text-red-500" />}
+                        danger
+                        onClick={() => handleAgentDelete(record._id)}
+                        className="hover:bg-red-50 rounded-lg h-10 w-10 flex items-center justify-center transition-colors"
+                    />
+                </Space>
+            )
+        }
     ];
 
-    return (
-        <Card title="Page Content Management" loading={loading}>
-            <Form form={form} layout="vertical" onFinish={onFinish}>
-                <Tabs 
-                    defaultActiveKey="hero" 
-                    items={items}
-                    tabPosition="left"
-                    style={{ minHeight: 400 }}
+    const renderCard = (agent) => (
+        <div key={agent._id} className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all mb-4">
+            <div className="flex items-center gap-4 mb-4">
+                {agent.photo ? (
+                    <img src={agent.photo} alt={agent.name} className="w-16 h-16 rounded-2xl object-cover" />
+                ) : (
+                    <div className="w-16 h-16 rounded-2xl bg-gray-100" />
+                )}
+                <div className="flex-1">
+                    <h3 className="text-lg font-black text-gray-900 mb-0 leading-tight">{agent.name}</h3>
+                    <Tag className="m-0 mt-1 rounded-lg border-none px-2 font-bold uppercase text-[9px]">{agent.role}</Tag>
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-2 mb-6 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                    <span className="font-bold">Email:</span> {agent.email}
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="font-bold">Phone:</span> {agent.phone}
+                </div>
+            </div>
+
+            <div className="flex gap-2 pt-4 border-t border-gray-50">
+                <Button
+                    type="primary"
+                    icon={<EditOutlined />}
+                    onClick={() => {
+                        setEditingAgent(agent);
+                        agentForm.setFieldsValue(agent);
+                        setAgentModalVisible(true);
+                    }}
+                    className="rounded-xl h-12 flex-1 font-black uppercase tracking-widest shadow-lg shadow-primary/20"
+                >
+                    Edit
+                </Button>
+                <Button
+                    icon={<DeleteOutlined />}
+                    danger
+                    onClick={() => handleAgentDelete(agent._id)}
+                    className="rounded-xl h-12 w-12 border-gray-100 shadow-sm hover:border-red-500 hover:bg-red-50 transition-all flex items-center justify-center"
                 />
-                <Form.Item className="mt-4">
-                    <Button type="primary" htmlType="submit" size="large">
-                        Save All Content
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="max-w-[1400px] mx-auto">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                <div>
+                    <h1 className="text-3xl font-black text-gray-900 leading-none mb-2">Agents</h1>
+                    <p className="text-gray-400 font-medium">Manage your team of professionals</p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="hidden md:flex bg-gray-100 p-1 rounded-xl">
+                        <Button
+                            type={viewMode === 'table' ? 'primary' : 'text'}
+                            onClick={() => setViewMode('table')}
+                            className={`rounded-lg h-10 px-4 font-bold ${viewMode === 'table' ? 'shadow-md' : 'text-gray-500'}`}
+                        >
+                            Table
+                        </Button>
+                        <Button
+                            type={viewMode === 'card' ? 'primary' : 'text'}
+                            onClick={() => setViewMode('card')}
+                            className={`rounded-lg h-10 px-4 font-bold ${viewMode === 'card' ? 'shadow-md' : 'text-gray-500'}`}
+                        >
+                            Cards
+                        </Button>
+                    </div>
+                    <Button
+                        type="primary"
+                        size="large"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                            setEditingAgent(null);
+                            setAgentModalVisible(true);
+                        }}
+                        className="rounded-xl h-12 px-6 font-black uppercase tracking-widest flex-1 sm:flex-none shadow-lg shadow-primary/20"
+                    >
+                        Add Agent
                     </Button>
-                </Form.Item>
-            </Form>
-        </Card>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            ) : viewMode === 'table' && window.innerWidth >= 768 ? (
+                <Card className="rounded-[2rem] shadow-xl shadow-gray-200/50 border-none overflow-hidden" styles={{ body: { padding: 0 } }}>
+                    <Table
+                        dataSource={agents}
+                        columns={agentColumns}
+                        rowKey="_id"
+                        pagination={{ pageSize: 10 }}
+                        className="admin-table"
+                    />
+                </Card>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
+                    {agents.map(renderCard)}
+                </div>
+            )}
+
+            <Modal
+                title={editingAgent ? "Edit Agent" : "Add Agent"}
+                open={agentModalVisible}
+                onCancel={() => setAgentModalVisible(false)}
+                onOk={() => agentForm.submit()}
+            >
+                <Form form={agentForm} layout="vertical" onFinish={handleAgentSave}>
+                    <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+                        <Input />
+                    </Form.Item>
+                    <Form.Item name="role" label="Role">
+                        <Input placeholder="e.g. Senior Broker" />
+                    </Form.Item>
+                    <Form.Item name="photo" label="Photo">
+                        <ImageUploader mode="single" />
+                    </Form.Item>
+                    <Form.Item name="bio" label="Bio">
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
+                    <Space className='w-full' orientation="vertical">
+                        <Form.Item name="phone" label="Phone">
+                            <Input />
+                        </Form.Item>
+                        <Form.Item name="email" label="Email">
+                            <Input />
+                        </Form.Item>
+                    </Space>
+                    <Space className='w-full' orientation="vertical">
+                        <Form.Item name={['social', 'facebook']} label="Facebook URL">
+                            <Input placeholder="https://facebook.com/..." />
+                        </Form.Item>
+                        <Form.Item name={['social', 'linkedin']} label="LinkedIn URL">
+                            <Input placeholder="https://linkedin.com/in/..." />
+                        </Form.Item>
+                        <Form.Item name={['social', 'twitter']} label="Twitter URL">
+                            <Input placeholder="https://twitter.com/..." />
+                        </Form.Item>
+                        <Form.Item name={['social', 'instagram']} label="Instagram URL">
+                            <Input placeholder="https://instagram.com/..." />
+                        </Form.Item>
+                    </Space>
+                </Form>
+            </Modal>
+        </div>
     );
 };
 
-export default PageContent;
+export default Agents;

@@ -125,9 +125,7 @@ const Login = () => {
                                     </Button>
                                 </Form.Item>
                                 
-                                <div className="text-center text-sm text-gray-500">
-                                    <p>Default credentials: admin@example.com / admin123</p>
-                                </div>
+       
                             </Form>
                         </Card>
                         
